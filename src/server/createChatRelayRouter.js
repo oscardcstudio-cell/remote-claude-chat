@@ -68,7 +68,14 @@ export function createChatRelayRouter(opts) {
       if (!token) return res.status(401).json({ error: "Accès non autorisé." });
       const desc = await store.resolveAccessToken(String(token));
       if (!desc || desc.disabled) return res.status(401).json({ error: "Accès non autorisé." });
-      req.rcc = { projectId: desc.projectId, tokenId: desc.id, dailyCap: desc.dailyCap ?? null };
+      // Token "personne" (project_id = "*") : autorisé sur N agents ; l'agent ciblé est dans
+      // le header x-project-id (choisi dans le dashboard). Token scopé : son project_id fixe.
+      let projectId = desc.projectId;
+      if (projectId === "*") {
+        projectId = req.headers["x-project-id"];
+        if (!projectId) return res.status(400).json({ error: "x-project-id requis (agent cible)." });
+      }
+      req.rcc = { projectId: String(projectId), tokenId: desc.id, dailyCap: desc.dailyCap ?? null };
       next();
     } catch (e) {
       next(e);

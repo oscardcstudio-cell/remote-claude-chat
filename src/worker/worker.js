@@ -48,7 +48,8 @@ export function createWorker({ relayUrl, workerToken, projects, pollMs = 2000, c
       const args = ["-p", "--output-format", "json"];
       if (sessionId) args.push("--resume", sessionId);
       // shell:true → résout claude.cmd sur Windows. Prompt via stdin (zéro souci de quoting).
-      const child = spawn(claudeBin, args, { cwd: project.worktree, shell: true });
+      // execCwd = sous-dossier du worktree (un repo peut héberger N works, chacun son CLAUDE.md).
+      const child = spawn(claudeBin, args, { cwd: project.execCwd, shell: true });
       let out = "", err = "";
       child.stdout.on("data", (d) => (out += d));
       child.stderr.on("data", (d) => (err += d));
@@ -67,7 +68,7 @@ export function createWorker({ relayUrl, workerToken, projects, pollMs = 2000, c
     });
   }
 
-  async function process(msg) {
+  async function runOne(msg) {
     const project = byId.get(msg.projectId);
     if (!project) { // message pour un projet que ce worker n'héberge pas (ne devrait pas arriver, on a filtré le poll)
       log.error?.(`⚠ message pour projet inconnu: ${msg.projectId}`);
@@ -92,7 +93,7 @@ export function createWorker({ relayUrl, workerToken, projects, pollMs = 2000, c
     const { message } = await api("POST", "/_worker/poll", { projects: free });
     if (!message) return;
     busy.add(message.projectId);                               // marque busy AVANT l'exec (sérialise le projet)
-    process(message).catch((e) => log.error?.("⚠ process:", e.message)).finally(() => busy.delete(message.projectId));
+    runOne(message).catch((e) => log.error?.("⚠ exec:", e.message)).finally(() => busy.delete(message.projectId));
   }
 
   async function start() {
@@ -112,11 +113,14 @@ export function createWorker({ relayUrl, workerToken, projects, pollMs = 2000, c
 function normalizeProject(p) {
   if (!p.id || !p.repo) throw new Error(`projet invalide (id + repo requis): ${JSON.stringify(p)}`);
   const repo = path.resolve(p.repo);
+  const worktree = p.worktree ? path.resolve(p.worktree) : path.resolve(repo, "..", `${path.basename(repo)}-rcc-chat`);
   return {
     id: p.id,
     repo,
     branch: p.branch || "rcc/chat",
-    worktree: p.worktree ? path.resolve(p.worktree) : path.resolve(repo, "..", `${path.basename(repo)}-rcc-chat`),
+    worktree,
+    // execCwd : sous-dossier du worktree où claude s'exécute (charge le CLAUDE.md local). Défaut = racine.
+    execCwd: p.cwd ? path.join(worktree, p.cwd) : worktree,
   };
 }
 

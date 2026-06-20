@@ -16,6 +16,7 @@ export function createChatClient(opts = {}) {
   const apiBase = (opts.apiBase || "/api/chat").replace(/\/$/, "");
   const pollMs = opts.pollMs || 2000;
   const headers = opts.accessToken ? { "x-access-token": opts.accessToken } : {};
+  if (opts.projectId) headers["x-project-id"] = opts.projectId;   // token-personne → agent ciblé
   const convId = opts.convId || ensureConvId(opts.projectId || "default");
   let timer = null, stopped = false, lastJson = "";
 

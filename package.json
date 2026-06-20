@@ -1,0 +1,44 @@
+{
+  "name": "remote-claude-chat",
+  "version": "0.1.0",
+  "description": "Chat Claude Code distant, brandable, multi-projet : relais Express (Railway = seul writer DB, jamais d'exec ni de clé) + worker local polling (PC derrière NAT, exécute le CLI claude dans un worktree dédié) + widget UI (vanilla + React). 2 tokens distincts (worker / accès pote). Généralisé depuis la brique D de subvention_match.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Oscar de Canecaude",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oscardcstudio-cell/remote-claude-chat.git"
+  },
+  "exports": {
+    "./server": "./src/server/createChatRelayRouter.js",
+    "./server/stores/memory": "./src/server/stores/memoryStore.js",
+    "./server/stores/drizzle-pg": "./src/server/stores/drizzlePgStore.js",
+    "./schema": "./src/schema/schema.js",
+    "./schema/sql": "./src/schema/migration.sql",
+    "./worker": "./src/worker/worker.js",
+    "./client": "./src/client/mountChatTab.js",
+    "./client/react": "./src/client/ChatTab.jsx",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "rcc-worker": "./src/worker/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "express": ">=4",
+    "drizzle-orm": ">=0.30",
+    "react": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "express": { "optional": true },
+    "drizzle-orm": { "optional": true },
+    "react": { "optional": true }
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "keywords": ["claude", "claude-code", "remote", "chat", "relay", "worker", "polling", "express", "react", "railway", "agent", "brandable", "multi-project"]
+}

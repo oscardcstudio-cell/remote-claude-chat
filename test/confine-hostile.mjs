@@ -14,8 +14,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildConfinedSettings } from "./_confined-settings.mjs";
 
-const SETTINGS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "worker", "confined-settings.json");
+const SETTINGS = buildConfinedSettings();   // template {{HOME}} substitué (sinon faux-vert)
 const ENV_ALLOW = ["PATH","Path","SystemRoot","windir","SYSTEMROOT","TEMP","TMP","USERPROFILE","HOMEDRIVE","HOMEPATH","APPDATA","LOCALAPPDATA","PROGRAMDATA","COMSPEC","PATHEXT","NUMBER_OF_PROCESSORS","OS","PROCESSOR_ARCHITECTURE","CLAUDE_CONFIG_DIR","CLAUDE_CODE_OAUTH_TOKEN","CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"];
 
 function curatedEnv() {

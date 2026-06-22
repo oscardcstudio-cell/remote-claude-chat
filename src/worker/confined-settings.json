@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "deny": [
+      "Read({{HOME}}/.claude/**)",
+      "Read({{HOME}}/.ssh/**)",
+      "Read({{HOME}}/.aws/**)",
+      "Read({{HOME}}/.config/**)",
+      "Read({{HOME}}/AppData/**)",
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Read(//**/.credentials.json)",
+      "Read(//**/credentials.json)",
+      "Read(//**/id_rsa)",
+      "Read(//**/id_ed25519)",
+      "Read(//**/.npmrc)",
+      "Read(//**/secrets/**)"
+    ]
+  }
+}

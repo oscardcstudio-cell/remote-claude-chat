@@ -172,6 +172,59 @@ la facture mais (a) ta **fenêtre de quota d'abonnement** et (b) le **compute su
 `daily_cap` par token (msgs/jour, `NULL` = illimité, **off par défaut**) = kill-switch ; `disabled = true`
 révoque instantanément ; chaque exec est audité (`chat.exec`, coût réel `total_cost_usd` loggé pour info).
 
+## Confinement de l'exec (`confine`, défaut `true`)
+
+> **Ce que ça protège — et ce que ça NE protège PAS.** Confinement **LÉGER** : contre l'**accident**
+> et le **snoop casual** (un pote qui demande à l'agent « lis et montre-moi tes clés / tes secrets »).
+> **PAS** une sandbox contre un adversaire déterminé — pas de Docker/WSL ici, l'exec tourne sous ton
+> compte Windows. Public visé : des gens de confiance. Ne donne pas une URL à quelqu'un que tu ne
+> laisserais pas physiquement sur ton PC.
+
+Quand `confine: true` (défaut de `createWorker`), chaque `claude -p` est lancé avec :
+
+1. **Settings global d'Oscar NON chargé** — `--setting-sources project,local` exclut
+   `~/.claude/settings.json` → son `defaultMode: bypassPermissions` (qui désactive TOUTES les
+   permissions) ne s'applique pas. `--permission-mode default` en renfort (override CLI).
+2. **Deny-list sur les secrets** — `--settings <.rcc-confined-settings.json>` refuse l'outil
+   **Read** (et les lecteurs Bash reconnus `cat`/`head`/`tail`/`sed`) sur `~/.claude/**`, `.ssh`,
+   `.aws`, `AppData`, `**/.env`, `**/credentials.json`, clés SSH, `.npmrc`, `secrets/**`. Le fichier
+   est **généré au runtime** depuis le template `src/worker/confined-settings.json` : le placeholder
+   `{{HOME}}` est remplacé par le home réel de l'opérateur (`os.homedir()`), donc le repo public
+   n'est pas lié à un utilisateur particulier.
+   ⚠️ Syntaxe Windows obligatoire : `Read(//c/Users/...)` (POSIX-normalisé, double-slash, lecteur
+   minuscule) — un chemin `C:\Users\...` ne matcherait **rien** (faux-vert silencieux).
+3. **Env curé** — claude n'hérite PAS de `process.env` brut. Allow-list explicite (PATH, SystemRoot,
+   TEMP, l'auth claude) ; tout le reste — `SLACK_*`, `GITHUB_TOKEN_*`, `OPENROUTER/NVIDIA keys`… —
+   **disparaît** du process, donc d'un `env` lancé par le pote. `ANTHROPIC_API_KEY`/`AUTH_TOKEN`
+   volontairement absents (gagneraient sur l'OAuth d'abonnement + fuiteraient). `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`
+   laissé à son défaut (ON) → scrub des creds des sous-process Bash.
+
+**Ce qui tient — vérifié empiriquement** (`test/confine-boundary.mjs`, claude v2.1.161, prompts sur
+fichiers banals pour isoler la frontière du jugement du modèle) :
+- L'outil **Read** d'un chemin deny est refusé ("accès au répertoire refusé"), un fichier DANS le projet
+  reste lisible (deny **sélective**, pas blocage global).
+- Un **sous-process arbitraire** (`python -c "open(...).read()"`, script Node, `type`, `Get-Content`)
+  n'est PAS auto-exécuté : en `--permission-mode default` headless il exige une approbation que personne
+  ne peut donner → `permission_denials` → refusé. Le "trou python" qu'on craignait est fermé **tant que
+  les deux conditions ci-dessous tiennent**.
+
+**Conditions qui ROUVRENT le trou — à ne pas violer :**
+- **Ne jamais passer en mode laxiste** (`acceptEdits`, `bypassPermissions`, `--dangerously-skip-permissions`) :
+  l'approbation des commandes saute → python/node lisent n'importe quel chemin. Le confinement REPOSE sur
+  `default` (ou plus strict).
+- **Ne pas allow-lister Bash dans un `.claude/settings.json` de repo d'agent** : `--setting-sources project,local`
+  charge encore les settings du projet → un `permissions.allow` large y rouvre l'exec arbitraire.
+
+**Trous assumés (honnêteté) :**
+- **Adversaire déterminé** : pas une sandbox. Un acteur motivé peut tenter des formulations détournées,
+  de l'ingénierie sociale, ou exploiter une faille du CLI. Le seul vrai rempart serait le **sandbox OS**
+  de claude (`sandbox.filesystem`, indispo Windows natif) ou un **conteneur/VM**. Public visé : confiance.
+- **L'écriture / git** : l'agent garde Bash + git dans son worktree. `confine` borne la **lecture de
+  secrets**, pas les capacités d'écriture (c'est le rôle du worktree dédié + des 2 tokens de canal).
+
+`confine: false` rétablit le comportement historique (exec brut, hérite de tout `process.env` et du
+settings global avec bypassPermissions) — réservé à un usage **strictement local de confiance totale**.
+
 ## Sécurité — checklist avant d'exposer une URL
 
 - [ ] `WORKER_TOKEN` long aléatoire, identique relais ⇄ worker, **jamais commité**.
@@ -179,6 +232,7 @@ révoque instantanément ; chaque exec est audité (`chat.exec`, coût réel `to
 - [ ] La page qui appelle `mountChatTab` est **protégée** (le token ne doit pas être public dans le HTML d'une page ouverte).
 - [ ] `ANTHROPIC_API_KEY` absente de Railway.
 - [ ] Worktree dédié vérifié (pas d'exec sur ta branche de travail).
+- [ ] `confine: true` (défaut) — confinement léger de l'exec actif (cf. section ci-dessus).
 
 ## Test
 

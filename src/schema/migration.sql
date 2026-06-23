@@ -44,3 +44,13 @@ CREATE TABLE IF NOT EXISTS remote_chat_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_rcc_evt_project ON remote_chat_events (project_id);
+
+-- ── Ajouts additifs (idempotents, jamais de DROP) ──────────────────────────────
+-- delivered_at : horodatage de prise par le worker → redelivery (re-queue d'un message
+-- "delivered" trop vieux si le worker meurt ou si POST /reply échoue côté réseau).
+ALTER TABLE remote_chat_messages ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
+CREATE INDEX IF NOT EXISTS idx_rcc_msg_delivered ON remote_chat_messages (status, delivered_at);
+
+-- allow_list : restriction opt-in d'un token "personne" (project_id = '*') à un sous-ensemble
+-- d'agents joignables. NULL/absente = tous projets permis (rétro-compat).
+ALTER TABLE remote_chat_tokens ADD COLUMN IF NOT EXISTS allow_list jsonb;

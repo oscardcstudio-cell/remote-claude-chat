@@ -72,4 +72,27 @@ await t("countTodayByToken alimente le cap", async () => {
   assert.ok(n >= 3, `attendu >=3 messages today, eu ${n}`);
 });
 
+await t("allowList opt-in : token '*' expose sa liste, legacy → null (rétro-compat)", async () => {
+  const s = createMemoryStore({ tokens: [
+    { token: "tok-star", projectId: "*", allowList: ["mecene", "autre"] },
+    { token: "tok-open", projectId: "*" },
+  ] });
+  const star = await s.resolveAccessToken("tok-star");
+  assert.deepEqual(star.allowList, ["mecene", "autre"]);
+  const open = await s.resolveAccessToken("tok-open");
+  assert.equal(open.allowList, null); // absente → tous projets permis (comportement legacy)
+});
+
+await t("requeueStale : delivered trop vieux → re-queued (anti réponse avalée)", async () => {
+  const s = createMemoryStore({ tokens: [{ token: "tk", projectId: "p" }] });
+  const tk = await s.resolveAccessToken("tk");
+  const m = await s.enqueueUserMessage({ projectId: "p", convId: "c", accessTokenId: tk.id, content: "x" });
+  await s.pollNext({ projectIds: ["p"] });                       // → delivered
+  assert.equal(await s.pollNext({ projectIds: ["p"] }), null);   // plus rien à servir
+  s._messages.find((r) => r.id === m.id).deliveredAt = 1;        // simule un worker mort (prise très ancienne)
+  assert.equal(await s.requeueStale({ olderThanMs: 1000 }), 1);
+  const again = await s.pollNext({ projectIds: ["p"] });         // redevenu servable
+  assert.equal(again.id, m.id);
+});
+
 console.log(`\n${ok} tests OK`);

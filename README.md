@@ -156,7 +156,9 @@ Au 1er lancement, le worker crée un worktree dédié par projet (défaut `<repo
 | Côté | Var | Requis | Défaut | Rôle |
 |---|---|---|---|---|
 | Relais | `WORKER_TOKEN` | oui (prod) | — | auth worker↔relais |
-| Relais | `NODE_ENV` | — | — | `!= production` → bypass auth (dev local) |
+| Relais | `RCC_DEV_BYPASS` | — | — | `=1` → bypass auth (dev local **opt-in explicite**). Fail-closed par défaut : jamais déduit de l'absence d'une autre var. |
+| Relais | `RCC_TOKENS` | oui (prod) | `[]` | JSON `[{token, projectId, label, allowList?}]`. `projectId:"*"` = token "personne" ; `allowList` (opt-in) restreint les agents joignables. |
+| Relais | `redeliverAfterMs` (opt) | — | `300000` | option `createChatRelayRouter` : re-queue un message `delivered` plus vieux que ce délai (worker mort). `0` = off. |
 | Worker | `RELAY_URL` | oui | — | base prod, sans slash final (`RAILWAY_URL` accepté) |
 | Worker | `WORKER_TOKEN` | oui | — | même valeur que côté relais |
 | Worker | `RCC_PROJECTS` | — | `./projects.json` | manifest des projets |

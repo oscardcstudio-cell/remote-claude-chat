@@ -37,15 +37,30 @@
  * @returns {import('express').Router}
  */
 import express from "express";
+import crypto from "node:crypto";
+
+// Comparaison constant-time d'un secret partagé (anti timing-attack).
+function safeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
 
 export function createChatRelayRouter(opts) {
   const {
     store,
     workerToken = process.env.WORKER_TOKEN,
-    devBypass = process.env.NODE_ENV !== "production",
+    // Fail-closed par défaut : le bypass auth est un opt-in EXPLICITE (jamais déduit de l'absence
+    // d'une var d'env comme NODE_ENV, qui n'est réglée nulle part en prod → trou fail-open).
+    devBypass = process.env.RCC_DEV_BYPASS === "1",
     apiBase = "/api/chat",
     workerBase = "/_worker",
     maxReplyBytes = 2 * 1024 * 1024,
+    // Redelivery : un message resté "delivered" plus longtemps que ce délai (worker mort / reply
+    // réseau échoué) est re-queué au prochain poll. 0 = désactivé.
+    redeliverAfterMs = 5 * 60 * 1000,
   } = opts || {};
   if (!store) throw new Error("createChatRelayRouter: `store` requis.");
 
@@ -74,6 +89,10 @@ export function createChatRelayRouter(opts) {
       if (projectId === "*") {
         projectId = req.headers["x-project-id"];
         if (!projectId) return res.status(400).json({ error: "x-project-id requis (agent cible)." });
+        // Allow-list opt-in : un token "personne" peut restreindre les agents joignables.
+        // Absente (legacy) → tous projets permis (rétro-compat). Présente → membership obligatoire.
+        if (Array.isArray(desc.allowList) && desc.allowList.length && !desc.allowList.includes(String(projectId)))
+          return res.status(403).json({ error: "Projet non autorisé pour ce token." });
       }
       req.rcc = { projectId: String(projectId), tokenId: desc.id, dailyCap: desc.dailyCap ?? null };
       next();
@@ -123,7 +142,7 @@ export function createChatRelayRouter(opts) {
   worker.use((req, res, next) => {
     if (devBypass) return next();
     if (!workerToken) return res.status(503).json({ error: "Worker désactivé: WORKER_TOKEN manquant." });
-    if (req.headers["x-worker-token"] !== workerToken) return res.status(401).json({ error: "Worker non autorisé." });
+    if (!safeEqual(req.headers["x-worker-token"], workerToken)) return res.status(401).json({ error: "Worker non autorisé." });
     next();
   });
 
@@ -133,6 +152,10 @@ export function createChatRelayRouter(opts) {
     try {
       const projectIds = Array.isArray(req.body?.projects) ? req.body.projects.map(String) : [];
       if (!projectIds.length) return res.status(400).json({ error: "projects[] requis." });
+      // Re-queue les messages avalés (delivered trop vieux) avant de servir le suivant.
+      if (redeliverAfterMs > 0 && typeof store.requeueStale === "function") {
+        try { await store.requeueStale({ olderThanMs: redeliverAfterMs }); } catch { /* best-effort */ }
+      }
       const message = await store.pollNext({ projectIds });
       res.json({ message: message || null });
     } catch (e) { next(e); }

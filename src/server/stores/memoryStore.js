@@ -13,7 +13,7 @@ export function createMemoryStore({ tokens = [] } = {}) {
   return {
     async resolveAccessToken(token) {
       const t = tokenRows.find((r) => r.token === token);
-      return t ? { id: t.id, projectId: t.projectId, disabled: !!t.disabled, dailyCap: t.dailyCap ?? null, label: t.label ?? null } : null;
+      return t ? { id: t.id, projectId: t.projectId, disabled: !!t.disabled, dailyCap: t.dailyCap ?? null, label: t.label ?? null, allowList: Array.isArray(t.allowList) ? t.allowList.map(String) : null } : null;
     },
 
     async countTodayByToken(accessTokenId) {
@@ -40,14 +40,28 @@ export function createMemoryStore({ tokens = [] } = {}) {
         .sort((a, b) => a.createdAt - b.createdAt)[0];
       if (!msg) return null;
       msg.status = "delivered";
+      msg.deliveredAt = Date.now();
       return { id: msg.id, projectId: msg.projectId, convId: msg.convId, content: msg.content };
+    },
+
+    // Re-queue les messages "delivered" depuis trop longtemps (worker mort / reply réseau échoué).
+    async requeueStale({ olderThanMs = 5 * 60 * 1000 } = {}) {
+      const cutoff = Date.now() - olderThanMs;
+      let n = 0;
+      for (const m of messages) {
+        if (m.role === "user" && m.status === "delivered" && m.deliveredAt && m.deliveredAt < cutoff) {
+          m.status = "queued"; m.deliveredAt = null; n++;
+        }
+      }
+      return n;
     },
 
     async reply({ id, projectId, convId, reply, error, costUsd }) {
       const orig = messages.find((m) => m.id === id);
-      if (orig) { orig.status = error ? "error" : "done"; if (error) orig.error = String(error); if (costUsd != null) orig.costUsd = costUsd; }
+      if (!orig) return; // id inconnu → ne pas insérer un message assistant orphelin (statut incohérent)
+      orig.status = error ? "error" : "done"; if (error) orig.error = String(error); if (costUsd != null) orig.costUsd = costUsd;
       messages.push({
-        id: uid(), projectId: projectId ?? orig?.projectId, convId, accessTokenId: null, role: "assistant",
+        id: uid(), projectId: projectId ?? orig.projectId, convId, accessTokenId: null, role: "assistant",
         content: error ? `⚠ Erreur d'exécution : ${String(error)}` : (reply ?? "").toString(),
         status: "done", error: null, costUsd: costUsd ?? null, createdAt: new Date(),
       });

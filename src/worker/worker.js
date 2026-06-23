@@ -99,7 +99,12 @@ export function createWorker({ relayUrl, workerToken, agentsDir, projects = [], 
     return new Promise((resolve) => {
       const args = ["-p", "--output-format", "json"];
       if (confine) args.push("--setting-sources", "project,local", "--permission-mode", "default", "--settings", confinedPath, "--strict-mcp-config");
-      if (sessionId) args.push("--resume", sessionId);
+      // sessionId vient de .rcc-sessions.json (altérable hors-process) et passe en ARGUMENT CLI
+      // avec shell:true → format strict obligatoire (anti shell-injection). Le `content`, lui, passe
+      // par stdin (jamais en arg) donc non injectable. shell:true conservé : requis pour exécuter
+      // claude.cmd sur Windows (spawn shell:false sur un .cmd casse l'exec).
+      if (sessionId && /^[A-Za-z0-9_-]+$/.test(sessionId)) args.push("--resume", sessionId);
+      else if (sessionId) log.error?.(`⚠ sessionId ignoré (format invalide): ${String(sessionId).slice(0, 40)}`);
       const child = spawn(claudeBin, args, { cwd: agent.execCwd, shell: true, env: confine ? curatedEnv() : process.env });
       let out = "", err = "";
       child.stdout.on("data", (d) => (out += d));
@@ -131,7 +136,14 @@ export function createWorker({ relayUrl, workerToken, agentsDir, projects = [], 
     const { message } = await api("POST", "/_worker/poll", { projects: free });
     if (!message) return;
     busy.add(message.projectId);
-    runOne(message).catch((e) => log.error?.("⚠ exec:", e.message)).finally(() => busy.delete(message.projectId));
+    runOne(message)
+      .catch(async (e) => {
+        log.error?.("⚠ exec:", e.message);
+        // Notifier le relais sinon le message reste "delivered" pour toujours (réponse avalée).
+        try { await api("POST", "/_worker/reply", { id: message.id, projectId: message.projectId, convId: message.convId, error: `worker exec: ${e.message}` }); }
+        catch (e2) { log.error?.("⚠ reply après échec exec:", e2.message); }
+      })
+      .finally(() => busy.delete(message.projectId));
   }
 
   async function start() {
@@ -148,7 +160,7 @@ export function createWorker({ relayUrl, workerToken, agentsDir, projects = [], 
   }
 
   function stop() { running = false; }
-  return { start, stop, get agents() { return [...byId.values()]; } };
+  return { start, stop, get agents() { return [...byId.values()]; }, get busyCount() { return busy.size; } };
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

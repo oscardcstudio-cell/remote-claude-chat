@@ -21,6 +21,7 @@ export const remoteChatMessages = pgTable("remote_chat_messages", {
   error: text("error"),
   costUsd: numeric("cost_usd"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }), // prise par le worker → redelivery
 }, (t) => ({
   projConvIdx: index("idx_rcc_msg_proj_conv").on(t.projectId, t.convId),
   statusIdx: index("idx_rcc_msg_status").on(t.status),
@@ -33,6 +34,7 @@ export const remoteChatTokens = pgTable("remote_chat_tokens", {
   label: text("label"),
   disabled: boolean("disabled").notNull().default(false),
   dailyCap: integer("daily_cap"),
+  allowList: jsonb("allow_list"),               // token "*" : restriction opt-in aux projets listés
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
 }, (t) => ({

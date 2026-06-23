@@ -25,7 +25,7 @@ export function createDrizzlePgStore({ db, tables, tableNames } = {}) {
       if (!t) return null;
       // touch last_used_at (best-effort, non bloquant pour l'auth)
       db.update(T.tokens).set({ lastUsedAt: new Date() }).where(eq(T.tokens.id, t.id)).catch(() => {});
-      return { id: t.id, projectId: t.projectId, disabled: !!t.disabled, dailyCap: t.dailyCap ?? null, label: t.label ?? null };
+      return { id: t.id, projectId: t.projectId, disabled: !!t.disabled, dailyCap: t.dailyCap ?? null, label: t.label ?? null, allowList: Array.isArray(t.allowList) ? t.allowList.map(String) : null };
     },
 
     async countTodayByToken(accessTokenId) {
@@ -53,7 +53,7 @@ export function createDrizzlePgStore({ db, tables, tableNames } = {}) {
       const ids = sql.join(projectIds.map((p) => sql`${p}`), sql`, `);
       const res = await db.execute(sql`
         UPDATE ${sql.identifier(N.messages)} m
-           SET status = 'delivered'
+           SET status = 'delivered', delivered_at = now()
          WHERE m.id = (
            SELECT id FROM ${sql.identifier(N.messages)}
             WHERE role = 'user' AND status = 'queued' AND project_id IN (${ids})
@@ -65,6 +65,20 @@ export function createDrizzlePgStore({ db, tables, tableNames } = {}) {
       `);
       const [msg] = rowsOf(res);
       return msg || null;
+    },
+
+    // Re-queue les messages "delivered" depuis trop longtemps (worker mort / reply réseau échoué).
+    async requeueStale({ olderThanMs = 5 * 60 * 1000 } = {}) {
+      const cutoffSec = Math.max(1, Math.floor(olderThanMs / 1000));
+      const res = await db.execute(sql`
+        UPDATE ${sql.identifier(N.messages)}
+           SET status = 'queued', delivered_at = NULL
+         WHERE role = 'user' AND status = 'delivered'
+           AND delivered_at IS NOT NULL
+           AND delivered_at < now() - (${cutoffSec} * interval '1 second')
+        RETURNING id
+      `);
+      return rowsOf(res).length;
     },
 
     async reply({ id, projectId, convId, reply, error, costUsd }) {

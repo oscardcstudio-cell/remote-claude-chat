@@ -1,6 +1,6 @@
 {
   "name": "remote-claude-chat",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "Chat Claude Code distant, brandable, multi-projet : relais Express (Railway = seul writer DB, jamais d'exec ni de clé) + worker local polling (PC derrière NAT, exécute le CLI claude dans un worktree dédié) + widget UI (vanilla + React). 2 tokens distincts (worker / accès pote). Généralisé depuis la brique D de subvention_match.",
   "type": "module",
   "license": "MIT",
@@ -33,12 +33,32 @@
     "react": ">=17"
   },
   "peerDependenciesMeta": {
-    "express": { "optional": true },
-    "drizzle-orm": { "optional": true },
-    "react": { "optional": true }
+    "express": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "scripts": {
     "test": "node test/smoke.mjs"
   },
-  "keywords": ["claude", "claude-code", "remote", "chat", "relay", "worker", "polling", "express", "react", "railway", "agent", "brandable", "multi-project"]
+  "keywords": [
+    "claude",
+    "claude-code",
+    "remote",
+    "chat",
+    "relay",
+    "worker",
+    "polling",
+    "express",
+    "react",
+    "railway",
+    "agent",
+    "brandable",
+    "multi-project"
+  ]
 }

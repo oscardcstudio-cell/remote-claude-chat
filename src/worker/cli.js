@@ -42,5 +42,18 @@ if (!projects.length && !AGENTS_DIR) {
 }
 
 const worker = createWorker({ relayUrl: RELAY_URL, workerToken: WORKER_TOKEN, agentsDir: AGENTS_DIR, projects, pollMs: POLL_MS, claudeBin: CLAUDE_BIN });
-process.on("SIGINT", () => { console.log("\n⏹ arrêt worker."); worker.stop(); setTimeout(() => process.exit(0), 100); });
+
+// Arrêt propre : on cesse de poller puis on attend la fin des exécutions en cours (garde 20s)
+// pour ne pas orphéliner un child claude / laisser un worktree sale. 2e Ctrl-C = exit immédiat.
+let stopping = false;
+process.on("SIGINT", async () => {
+  if (stopping) { console.log("\n⏹ arrêt forcé."); process.exit(1); }
+  stopping = true;
+  worker.stop();
+  console.log("\n⏹ arrêt worker — attente des exécutions en cours (Ctrl-C à nouveau pour forcer)…");
+  const deadline = Date.now() + 20000;
+  while (worker.busyCount > 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200));
+  if (worker.busyCount > 0) console.log(`⚠ ${worker.busyCount} exec encore en cours après 20s — exit quand même.`);
+  process.exit(0);
+});
 worker.start();

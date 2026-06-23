@@ -81,7 +81,7 @@ function h(tag, cls) { const e = document.createElement(tag); if (cls) e.classNa
 
 function TEMPLATE(brand) {
   const name = brand.projectName || "Chat";
-  const logo = brand.logo ? `<img class="rcc-logo" src="${brand.logo}" alt="">` : "";
+  const logo = brand.logo ? `<img class="rcc-logo" src="${escapeHtml(brand.logo)}" alt="">` : "";
   return `
     <div class="rcc-head">${logo}<span class="rcc-title">${escapeHtml(name)}</span></div>
     <div class="rcc-log"></div>

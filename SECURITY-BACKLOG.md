@@ -1,10 +1,13 @@
 # remote-claude-chat — backlog sécurité
 
-Audit read-only (2026-06-22). **Tous les findings package sont corrigés** (2026-06-23, v0.2.2→v0.2.3).
+Audit read-only (2026-06-22). **Tous les findings package sont corrigés** (2026-06-23, v0.2.2→v0.2.4).
 Chaque ligne : `fichier:ligne — problème — résolution`.
 
 ## Ouvert
 _(aucun finding package ouvert)_
+
+## RÉSOLU — 2026-06-23 (v0.2.4)
+- `package.json:peerDependencies` (advisory GHSA-gpj5-g38j-94v9 / CVE-2026-39356, HIGH) — `drizzle-orm >=0.30` autorisait des versions `< 0.45.2` vulnérables à une SQL injection via `escapeName()` (identifiants mal échappés dans `sql.identifier()`/`.as()`). **FIXÉ** : plancher peerDep → `drizzle-orm >=0.45.2` (force tout consommateur sur une version patchée). **Exploitabilité du store = nulle** : le seul identifiant atteignant `sql.identifier()` (`drizzlePgStore.js:55,59,74`) est `tableNames`/`N.messages` = nom de table **config-time** (défaut `remote_chat_messages`), jamais une entrée runtime ; tout ce qui est user-contrôlé (`projectId`, `convId`, `content`, `token`) passe en **paramètre lié** (`eq()`, `sql\`${p}\``, `.values()`). L'advisory exclut explicitement les apps « using only static schema objects ». Bump = défense en profondeur + plancher de contrat. **Code package inchangé** : schema + store + SQL bruts (`sql.identifier`/`sql.join`) testés OK sous 0.45.2 (forme objet du callback index l.25/40/51 survit). ⚠ Le fix EFFECTIF (version installée) est côté **consommateur** (dep directe `drizzle-orm`) — un plancher peer ne déplace pas un `0.36.x` déjà épinglé.
 
 ## RÉSOLU — 2026-06-23 (v0.2.3)
 - `src/server/createChatRelayRouter.js:45` (CRITIQUE) — `devBypass = NODE_ENV !== "production"` : **fail-open** (NODE_ENV réglé nulle part en prod → auth bypassée si défaut utilisé). **FIXÉ** : défaut `devBypass = RCC_DEV_BYPASS === "1"` (opt-in EXPLICITE, jamais déduit). Vérifié : le relais déployé (`intellectual-source-app`) passe `devBypass: false` en dur + `WORKER_TOKEN`/`RCC_TOKENS`/`DATABASE_URL` set en prod → jamais exploité. Fix = bon défaut pour futurs consommateurs.
@@ -18,10 +21,13 @@ _(aucun finding package ouvert)_
 - `src/server/stores/memoryStore.js:47` (LOW) — `reply()` insérait un assistant orphelin si id inconnu. **FIXÉ** : early-return si `!orig`.
 - `src/worker/confined-settings.json` (HIGH) — username `oscar` hardcodé → faux-vert sécu pour tout autre user. **FIXÉ v0.2.1** : templating `{{HOME}}` runtime (`os.homedir()`).
 
-## ⚠ À FAIRE AU DÉPLOIEMENT (gaté par Oscar — republish/bump consommateurs exclus de cette session)
-1. **Rejouer `migration.sql`** sur la DB prod (colonnes additives `delivered_at`, `allow_list` — idempotent, `IF NOT EXISTS`, aucun DROP).
-2. **Pour activer la restriction allowList** : ajouter `allowList: [...]` aux tokens "*" dans `RCC_TOKENS` (ou la colonne `allow_list`). Sans ça, comportement legacy inchangé (tous projets).
-3. **Bumper le consommateur** (`Intellectual_Source/console`) vers la nouvelle version du package après republish.
+## ⚠ DÉPLOIEMENT — état
+- ✅ **Package publié** : `github:oscardcstudio-cell/remote-claude-chat#v0.2.3` (tag live, 2026-06-23). N'importe quel consommateur peut s'y épingler.
+- ⏸ **Bump consommateur `Intellectual_Source/console` — À FAIRE PAR OSCAR.** Bloqué cette session : `console/server.mjs` a du WIP non-committé (sans rapport) + le repo n'a pas de remote git (deploy = `railway up` manuel → shipperait le working tree). Quand le WIP est prêt :
+  1. `cd Intellectual_Source/console && npm install "github:oscardcstudio-cell/remote-claude-chat#v0.2.3"` (⚠ forcer le tag explicite, sinon le lock garde l'ancien SHA — vérifier la ligne `resolved`). Mettre `package.json` dep → `#v0.2.3`.
+  2. `migration.sql` est rejoué **automatiquement au boot** (`db.mjs:23`) — rien à faire manuellement sur la DB (colonnes additives idempotentes).
+  3. Déployer (`railway up`) → vérifier Railway `intellectual-source-app` **SUCCESS** + `/healthz` 200.
+  4. (opt) Activer la restriction allowList : ajouter `allowList: [...]` au token `*` dans `RCC_TOKENS`. Sans ça, comportement legacy (tous projets).
 
 ## ⚠ HORS PÉRIMÈTRE PACKAGE — code consommateur à durcir (repo Intellectual_Source, pas ce package)
 - `Intellectual_Source/console/server.mjs:15` — `WORKER_TOKEN = process.env.WORKER_TOKEN || "local-worker-secret"` : fallback vers un secret PUBLIC connu si l'env est absent → worker-auth bypassable. **Railway prod a la var set (vérifié 2026-06-23)** donc pas exploité, mais le fallback est un fail-open latent. Fix conseillé : fail-closed (exit si absent en prod).

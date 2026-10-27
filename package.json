@@ -3,7 +3,7 @@
   "version": "0.2.5",
   "description": "Chat Claude Code distant, brandable, multi-projet : relais Express (Railway = seul writer DB, jamais d'exec ni de clé) + worker local polling (PC derrière NAT, exécute le CLI claude dans un worktree dédié) + widget UI (vanilla + React). 2 tokens distincts (worker / accès pote). Généralisé depuis la brique D de subvention_match.",
   "type": "module",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "author": "Oscar de Canecaude",
   "repository": {
     "type": "git",

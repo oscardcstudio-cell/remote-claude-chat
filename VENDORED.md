@@ -1,8 +1,8 @@
 # Copies vendorisées — remote-claude-chat
 
 Registre des projets qui consomment ce package et **comment**. Règle d'or meta : vendoring
-**interdit** — consommer en `github:oscardcstudio-cell/remote-claude-chat#<tag>` (Docker/Railway + clone-seul)
-ou `file:../../packages/remote-claude-chat` (local). Toute copie de code = dette à éliminer, listée ici.
+**interdit** — consommer en `github:oscardcstudio-cell/remote-claude-chat#<tag>` (Docker/Railway + clone-seul).
+La copie `packages/remote-claude-chat` du méta-repo a été supprimée (2026-10-27). Toute copie de code = dette à éliminer, listée ici.
 
 | Projet | Mode de consommation | Statut |
 |---|---|---|

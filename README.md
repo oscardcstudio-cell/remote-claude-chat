@@ -40,9 +40,7 @@ Pote (URL publique)  →  Relais (Railway, seul writer DB)  ←poll—  Worker (
 
 ```bash
 # en dépendance versionnée (Docker/Railway ET clone-seul)
-npm i github:oscardcstudio-cell/remote-claude-chat#v0.1.0
-# ou en local (monorepo de packages)
-npm i file:../../packages/remote-claude-chat
+npm i github:oscardcstudio-cell/remote-claude-chat#v0.2.5
 ```
 
 Peer deps optionnelles selon ce que tu importes : `express` (relais), `drizzle-orm` (store pg), `react` (widget React).

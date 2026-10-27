@@ -1,6 +1,6 @@
 {
   "name": "remote-claude-chat",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Chat Claude Code distant, brandable, multi-projet : relais Express (Railway = seul writer DB, jamais d'exec ni de clé) + worker local polling (PC derrière NAT, exécute le CLI claude dans un worktree dédié) + widget UI (vanilla + React). 2 tokens distincts (worker / accès pote). Généralisé depuis la brique D de subvention_match.",
   "type": "module",
   "license": "MIT",
@@ -44,7 +44,7 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs && node --test \"test/*.test.mjs\""
   },
   "keywords": [
     "claude",
@@ -60,5 +60,8 @@
     "agent",
     "brandable",
     "multi-project"
-  ]
+  ],
+  "devDependencies": {
+    "express": "^5.2.1"
+  }
 }

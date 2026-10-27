@@ -229,12 +229,21 @@ settings global avec bypassPermissions) — réservé à un usage **strictement 
 
 ## Sécurité — checklist avant d'exposer une URL
 
+> **Pas de sandbox native.** Ce service exécute Claude Code **sans isolation container par défaut**
+> (`confine: true` est un confinement **léger** — deny-list Read + env curé — PAS un Docker/WSL/VM,
+> cf. §Confinement ci-dessus). Avant tout déploiement **exposé** (URL publique, potes non triés sur
+> le volet), ajouter un **confinement externe** : réseau isolé (pas d'accès aux autres services/secrets
+> du LAN), VM dédiée jetable, ou conteneur équivalent autour du process worker. Sans ça, le seul rempart
+> est la confiance dans les personnes à qui l'URL est donnée.
+
 - [ ] `WORKER_TOKEN` long aléatoire, identique relais ⇄ worker, **jamais commité**.
 - [ ] Chaque pote a son `ACCESS_TOKEN` (table), scopé à 1 projet, transmis par un canal privé.
 - [ ] La page qui appelle `mountChatTab` est **protégée** (le token ne doit pas être public dans le HTML d'une page ouverte).
 - [ ] `ANTHROPIC_API_KEY` absente de Railway.
 - [ ] Worktree dédié vérifié (pas d'exec sur ta branche de travail).
 - [ ] `confine: true` (défaut) — confinement léger de l'exec actif (cf. section ci-dessus).
+- [ ] **Confinement externe** (réseau isolé / VM dédiée / conteneur) en place si l'URL est exposée
+      publiquement — le confinement applicatif seul ne protège pas d'un adversaire déterminé.
 
 ## Test
 

@@ -22,12 +22,9 @@ _(aucun finding package ouvert)_
 - `src/worker/confined-settings.json` (HIGH) — username `oscar` hardcodé → faux-vert sécu pour tout autre user. **FIXÉ v0.2.1** : templating `{{HOME}}` runtime (`os.homedir()`).
 
 ## ⚠ DÉPLOIEMENT — état
-- ✅ **Package publié** : `github:oscardcstudio-cell/remote-claude-chat#v0.2.3` (tag live, 2026-06-23). N'importe quel consommateur peut s'y épingler.
-- ⏸ **Bump consommateur `Intellectual_Source/console` — À FAIRE PAR OSCAR.** Bloqué cette session : `console/server.mjs` a du WIP non-committé (sans rapport) + le repo n'a pas de remote git (deploy = `railway up` manuel → shipperait le working tree). Quand le WIP est prêt :
-  1. `cd Intellectual_Source/console && npm install "github:oscardcstudio-cell/remote-claude-chat#v0.2.3"` (⚠ forcer le tag explicite, sinon le lock garde l'ancien SHA — vérifier la ligne `resolved`). Mettre `package.json` dep → `#v0.2.3`.
-  2. `migration.sql` est rejoué **automatiquement au boot** (`db.mjs:23`) — rien à faire manuellement sur la DB (colonnes additives idempotentes).
-  3. Déployer (`railway up`) → vérifier Railway `intellectual-source-app` **SUCCESS** + `/healthz` 200.
-  4. (opt) Activer la restriction allowList : ajouter `allowList: [...]` au token `*` dans `RCC_TOKENS`. Sans ça, comportement legacy (tous projets).
+- ✅ **Package publié** : `github:oscardcstudio-cell/remote-claude-chat#v0.2.4` (tag live, 2026-06-23, SHA 5749716). Plancher peerDep drizzle-orm >=0.45.2.
+- ✅ **Bump consommateur `Intellectual_Source/console` — FAIT (2026-06-23).** `package.json` → rcc `#v0.2.4` + `drizzle-orm ^0.45.2` ; lock resolved = SHA v0.2.4 (tag explicite forcé) ; `npm audit` = 0 vuln ; boot local /healthz 200 ; **Railway `intellectual-source-app` deploy 22700c0d SUCCESS (20:02) + /healthz prod 200**. `migration.sql` rejoué au boot (idempotent).
+  - (opt, NON FAIT) Activer la restriction allowList : ajouter `allowList: [...]` au token `*` dans `RCC_TOKENS`. Sans ça, comportement legacy (tous projets).
 
 ## ⚠ HORS PÉRIMÈTRE PACKAGE — code consommateur à durcir (repo Intellectual_Source, pas ce package)
 - `Intellectual_Source/console/server.mjs:15` — `WORKER_TOKEN = process.env.WORKER_TOKEN || "local-worker-secret"` : fallback vers un secret PUBLIC connu si l'env est absent → worker-auth bypassable. **Railway prod a la var set (vérifié 2026-06-23)** donc pas exploité, mais le fallback est un fail-open latent. Fix conseillé : fail-closed (exit si absent en prod).

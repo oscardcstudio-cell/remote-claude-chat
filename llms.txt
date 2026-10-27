@@ -1,0 +1,22 @@
+# remote-claude-chat
+> Chat Claude Code distant et multi-projet : relais Express (écrit en base, n'exécute rien) + worker local qui poll et lance le CLI claude + widget UI.
+
+## Vue d'ensemble
+- [CLAUDE.md](CLAUDE.md): règles du repo
+- [README.md](README.md): archi, installation, branchement, variables d'environnement, confinement, checklist sécurité
+- [SECURITY-BACKLOG.md](SECURITY-BACKLOG.md): findings sécurité résolus et ouverts
+- [VENDORED.md](VENDORED.md): consommateurs et dette de vendoring
+- [DEBRANCH-subvention_match.md](DEBRANCH-subvention_match.md): plan pour que subvention_match devienne consommateur
+
+## Fichiers critiques
+- [src/worker/worker.js](src/worker/worker.js): boucle de poll, exécution du CLI claude dans un worktree, confinement (deny-list Read + env curé)
+- [src/server/createChatRelayRouter.js](src/server/createChatRelayRouter.js): routes HTTP, auth fail-closed, quota journalier, tokens worker / personne
+- [src/server/stores/drizzlePgStore.js](src/server/stores/drizzlePgStore.js): store Postgres (peerDep drizzle-orm >= 0.45.2)
+- [src/server/stores/memoryStore.js](src/server/stores/memoryStore.js): store mémoire, pour les tests
+- [src/client/mountChatTab.js](src/client/mountChatTab.js): widget vanilla ; [src/client/ChatTab.jsx](src/client/ChatTab.jsx): widget React
+- [src/schema/migration.sql](src/schema/migration.sql): migration idempotente, rejouée au boot du consommateur
+
+## Points non-évidents (gotchas)
+- Le relais ne porte jamais de clé ni d'exec ; seul le worker (PC d'Oscar) exécute.
+- `npm test` a besoin d'`express` (devDependency) : il n'y a pas de node_modules versionné.
+- Le glob des suites est entre guillemets doubles échappés dans `package.json` pour fonctionner sous cmd et sh.
